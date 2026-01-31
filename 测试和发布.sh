@@ -14,5 +14,5 @@ npm login
 # 4. 验证登录成功，会输出你的npm账号名
 npm whoami
 
-# 核心发布命令（公开发布，所有人可安装）
+# 先修改版本号，再发布（公开发布，所有人可安装）
 npm publish --access public

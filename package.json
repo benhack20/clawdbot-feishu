@@ -1,6 +1,6 @@
 {
   "name": "@superbenxxxh/feishu",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "description": "OpenClaw Feishu/Lark channel plugin",
   "license": "MIT",
@@ -39,7 +39,7 @@
       "order": 70
     },
     "install": {
-      "npmSpec": "@m1heng-clawd/feishu",
+      "npmSpec": "@superbenxxxh/feishu",
       "localPath": ".",
       "defaultChoice": "npm"
     }
