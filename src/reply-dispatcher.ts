@@ -106,13 +106,14 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           return;
         }
 
-        // Check render mode: auto (default), raw, or card
+        // Check render mode: post (default), auto, raw, or card
         const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
-        const renderMode = feishuCfg?.renderMode ?? "auto";
+        const renderMode = feishuCfg?.renderMode ?? "post";
 
         // Determine if we should use card for this message
         const useCard =
           renderMode === "card" || (renderMode === "auto" && shouldUseCard(text));
+        const usePost = renderMode === "post";
 
         // Only include @mentions in the first chunk (avoid duplicate @s)
         let isFirstChunk = true;
@@ -132,10 +133,12 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             isFirstChunk = false;
           }
         } else {
-          // Raw mode: send as plain text with table conversion
+          // Raw or post mode: send as plain text or rich post with table conversion
           const converted = core.channel.text.convertMarkdownTables(text, tableMode);
           const chunks = core.channel.text.chunkTextWithMode(converted, textChunkLimit, chunkMode);
-          params.runtime.log?.(`feishu deliver: sending ${chunks.length} text chunks to ${chatId}`);
+          params.runtime.log?.(
+            `feishu deliver: sending ${chunks.length} ${usePost ? "post" : "text"} chunks to ${chatId}`,
+          );
           for (const chunk of chunks) {
             await sendMessageFeishu({
               cfg,
@@ -143,6 +146,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
               text: chunk,
               replyToMessageId,
               mentions: isFirstChunk ? mentionTargets : undefined,
+              messageType: usePost ? "post" : "text",
             });
             isFirstChunk = false;
           }

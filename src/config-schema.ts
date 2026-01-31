@@ -30,8 +30,8 @@ const MarkdownConfigSchema = z
   .strict()
   .optional();
 
-// Message render mode: auto (default) = detect markdown, raw = plain text, card = always card
-const RenderModeSchema = z.enum(["auto", "raw", "card"]).optional();
+// Message render mode: post (default) = rich text, auto = detect markdown, raw = plain text, card = interactive card
+const RenderModeSchema = z.enum(["auto", "raw", "post", "card"]).optional();
 
 const BlockStreamingCoalesceSchema = z
   .object({
@@ -89,7 +89,7 @@ export const FeishuConfigSchema = z
     blockStreamingCoalesce: BlockStreamingCoalesceSchema,
     mediaMaxMb: z.number().positive().optional(),
     heartbeat: ChannelHeartbeatVisibilitySchema,
-    renderMode: RenderModeSchema, // raw = plain text (default), card = interactive card with markdown
+    renderMode: RenderModeSchema, // post = rich text (default), raw = plain text, card = interactive card
   })
   .strict()
   .superRefine((value, ctx) => {

@@ -5,6 +5,11 @@ import { buildMentionedMessage, buildMentionedCardContent } from "./mention.js";
 import { createFeishuClient } from "./client.js";
 import { resolveReceiveIdType, normalizeFeishuTarget } from "./targets.js";
 import { getFeishuRuntime } from "./runtime.js";
+import { buildFeishuPostMessagePayload, parsePostContent } from "./post.js";
+
+type MarkdownTableMode = ReturnType<
+  ReturnType<typeof getFeishuRuntime>["channel"]["text"]["resolveMarkdownTableMode"]
+>;
 
 export type FeishuMessageInfo = {
   messageId: string;
@@ -65,13 +70,17 @@ export async function getMessageFeishu(params: {
 
     // Parse content based on message type
     let content = item.body?.content ?? "";
-    try {
-      const parsed = JSON.parse(content);
-      if (item.msg_type === "text" && parsed.text) {
-        content = parsed.text;
+    if (item.msg_type === "post") {
+      content = parsePostContent(content).textContent;
+    } else {
+      try {
+        const parsed = JSON.parse(content);
+        if (item.msg_type === "text" && parsed.text) {
+          content = parsed.text;
+        }
+      } catch {
+        // Keep raw content if parsing fails
       }
-    } catch {
-      // Keep raw content if parsing fails
     }
 
     return {
@@ -95,10 +104,30 @@ export type SendFeishuMessageParams = {
   replyToMessageId?: string;
   /** Mention target users */
   mentions?: MentionTarget[];
+  /** Send as text (default) or post (rich text) */
+  messageType?: "text" | "post";
 };
 
+function buildFeishuTextMessagePayload(params: {
+  rawText: string;
+  tableMode: MarkdownTableMode;
+  mentions?: MentionTarget[];
+}): {
+  content: string;
+  msgType: "text";
+} {
+  const { rawText, tableMode, mentions } = params;
+  const textWithMentions =
+    mentions && mentions.length > 0 ? buildMentionedMessage(mentions, rawText) : rawText;
+  const text = getFeishuRuntime().channel.text.convertMarkdownTables(textWithMentions, tableMode);
+  return {
+    content: JSON.stringify({ text }),
+    msgType: "text",
+  };
+}
+
 export async function sendMessageFeishu(params: SendFeishuMessageParams): Promise<FeishuSendResult> {
-  const { cfg, to, text, replyToMessageId, mentions } = params;
+  const { cfg, to, text, replyToMessageId, mentions, messageType } = params;
   const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
   if (!feishuCfg) {
     throw new Error("Feishu channel not configured");
@@ -116,21 +145,27 @@ export async function sendMessageFeishu(params: SendFeishuMessageParams): Promis
     channel: "feishu",
   });
 
-  // Build message content (with @mention support)
-  let rawText = text ?? "";
-  if (mentions && mentions.length > 0) {
-    rawText = buildMentionedMessage(mentions, rawText);
-  }
-  const messageText = getFeishuRuntime().channel.text.convertMarkdownTables(rawText, tableMode);
+  const rawText = text ?? "";
+  const baseMessageText = getFeishuRuntime().channel.text.convertMarkdownTables(rawText, tableMode);
 
-  const content = JSON.stringify({ text: messageText });
+  const payload =
+    messageType === "post"
+      ? buildFeishuPostMessagePayload({
+          messageText: baseMessageText,
+          mentions,
+        })
+      : buildFeishuTextMessagePayload({
+          rawText,
+          tableMode,
+          mentions,
+        });
 
   if (replyToMessageId) {
     const response = await client.im.message.reply({
       path: { message_id: replyToMessageId },
       data: {
-        content,
-        msg_type: "text",
+        content: payload.content,
+        msg_type: payload.msgType,
       },
     });
 
@@ -148,8 +183,8 @@ export async function sendMessageFeishu(params: SendFeishuMessageParams): Promis
     params: { receive_id_type: receiveIdType },
     data: {
       receive_id: receiveId,
-      content,
-      msg_type: "text",
+      content: payload.content,
+      msg_type: payload.msgType,
     },
   });
 
@@ -296,8 +331,9 @@ export async function editMessageFeishu(params: {
   cfg: ClawdbotConfig;
   messageId: string;
   text: string;
+  messageType?: "text" | "post";
 }): Promise<void> {
-  const { cfg, messageId, text } = params;
+  const { cfg, messageId, text, messageType } = params;
   const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
   if (!feishuCfg) {
     throw new Error("Feishu channel not configured");
@@ -308,14 +344,18 @@ export async function editMessageFeishu(params: {
     cfg,
     channel: "feishu",
   });
-  const messageText = getFeishuRuntime().channel.text.convertMarkdownTables(text ?? "", tableMode);
-  const content = JSON.stringify({ text: messageText });
+  const rawText = text ?? "";
+  const baseMessageText = getFeishuRuntime().channel.text.convertMarkdownTables(rawText, tableMode);
+  const payload =
+    messageType === "post"
+      ? buildFeishuPostMessagePayload({ messageText: baseMessageText })
+      : buildFeishuTextMessagePayload({ rawText, tableMode });
 
   const response = await client.im.message.update({
     path: { message_id: messageId },
     data: {
-      msg_type: "text",
-      content,
+      msg_type: payload.msgType,
+      content: payload.content,
     },
   });
 

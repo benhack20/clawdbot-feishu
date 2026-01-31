@@ -93,15 +93,16 @@ channels:
     requireMention: true
     # Max media size in MB (default: 30)
     mediaMaxMb: 30
-    # Render mode for bot replies: "auto" | "raw" | "card"
-    renderMode: "auto"
+    # Render mode for bot replies: "post" | "auto" | "raw" | "card"
+    renderMode: "post"
 ```
 
 #### Render Mode
 
 | Mode | Description |
 |------|-------------|
-| `auto` | (Default) Automatically detect: use card for messages with code blocks or tables, plain text otherwise. |
+| `post` | (Default) Send replies as rich text posts using `msg_type=post` + `tag=md`. |
+| `auto` | Automatically detect: use card for messages with code blocks or tables, plain text otherwise. |
 | `raw` | Always send replies as plain text. Markdown tables are converted to ASCII. |
 | `card` | Always send replies as interactive cards with full markdown rendering (syntax highlighting, tables, clickable links). |
 
@@ -256,15 +257,16 @@ channels:
     requireMention: true
     # 媒体文件最大大小 (MB, 默认 30)
     mediaMaxMb: 30
-    # 回复渲染模式: "auto" | "raw" | "card"
-    renderMode: "auto"
+    # 回复渲染模式: "post" | "auto" | "raw" | "card"
+    renderMode: "post"
 ```
 
 #### 渲染模式
 
 | 模式 | 说明 |
 |------|------|
-| `auto` | （默认）自动检测：有代码块或表格时用卡片，否则纯文本 |
+| `post` | （默认）使用富文本 post（`msg_type=post` + `tag=md`）。 |
+| `auto` | 自动检测：有代码块或表格时用卡片，否则纯文本 |
 | `raw` | 始终纯文本，表格转为 ASCII |
 | `card` | 始终使用卡片，支持语法高亮、表格、链接等 |
 

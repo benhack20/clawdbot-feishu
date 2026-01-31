@@ -1,3 +1,10 @@
+# 测试：进入wsl，切换到这个目录
+# node_modules 不能和 windows 混在一起了
+npm install
+openclaw plugins install .
+openclaw plugins list
+
+# 发布
 # 1. 切回npm官方源（关键！必执行）
 npm config set registry https://registry.npmjs.org/
 # 2. 验证当前源，确认是官方地址

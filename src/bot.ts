@@ -23,6 +23,7 @@ import {
   extractMessageBody,
   isMentionForwardRequest,
 } from "./mention.js";
+import { parsePostContent } from "./post.js";
 
 // --- Sender name resolution (so the agent can distinguish who is speaking in group chats) ---
 // Cache display names by open_id to avoid an API call on every message.
@@ -183,46 +184,6 @@ function parseMediaKeys(
  * Parse post (rich text) content and extract embedded image keys.
  * Post structure: { title?: string, content: [[{ tag, text?, image_key?, ... }]] }
  */
-function parsePostContent(content: string): {
-  textContent: string;
-  imageKeys: string[];
-} {
-  try {
-    const parsed = JSON.parse(content);
-    const title = parsed.title || "";
-    const contentBlocks = parsed.content || [];
-    let textContent = title ? `${title}\n\n` : "";
-    const imageKeys: string[] = [];
-
-    for (const paragraph of contentBlocks) {
-      if (Array.isArray(paragraph)) {
-        for (const element of paragraph) {
-          if (element.tag === "text") {
-            textContent += element.text || "";
-          } else if (element.tag === "a") {
-            // Link: show text or href
-            textContent += element.text || element.href || "";
-          } else if (element.tag === "at") {
-            // Mention: @username
-            textContent += `@${element.user_name || element.user_id || ""}`;
-          } else if (element.tag === "img" && element.image_key) {
-            // Embedded image
-            imageKeys.push(element.image_key);
-          }
-        }
-        textContent += "\n";
-      }
-    }
-
-    return {
-      textContent: textContent.trim() || "[富文本消息]",
-      imageKeys,
-    };
-  } catch {
-    return { textContent: "[富文本消息]", imageKeys: [] };
-  }
-}
-
 /**
  * Infer placeholder text based on message type.
  */
