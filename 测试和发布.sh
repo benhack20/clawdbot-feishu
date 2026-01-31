@@ -4,6 +4,27 @@ npm install
 openclaw plugins install .
 openclaw plugins list
 
+# 配置飞书 APP
+openclaw config set channels.feishu.appId ""
+openclaw config set channels.feishu.appSecret ""
+openclaw config set channels.feishu.enabled true
+openclaw config set channels.feishu.connectionMode websocket
+openclaw config set channels.feishu.dmPolicy pairing
+openclaw config set channels.feishu.requireMention true
+openclaw config set channels.feishu.groupPolicy open
+
+# 重启 gateway
+# openclaw gateway restart
+
+# 启动 gateway
+openclaw gateway
+
+# 【卸载】目前 openclaw plugins 不存在 uninstall 命令，只能手动删除
+# 在 openclaw.json 里去除飞书的 channel和 plugin
+vim ~/.openclaw/openclaw.json
+# 移除~/.openclaw/extensions/feishu
+rm -rf ~/.openclaw/extensions/feishu
+
 # 发布
 # 1. 切回npm官方源（关键！必执行）
 npm config set registry https://registry.npmjs.org/
