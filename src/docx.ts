@@ -6,6 +6,7 @@ import type * as Lark from "@larksuiteoapi/node-sdk";
 import { Readable } from "stream";
 import { FeishuDocSchema, type FeishuDocParams } from "./doc-schema.js";
 import { resolveToolsConfig } from "./tools-config.js";
+import { detectIdType, normalizeFeishuTarget } from "./targets.js";
 
 // ============ Helpers ============
 
@@ -73,12 +74,37 @@ const BLOCK_TYPE_NAMES: Record<number, string> = {
 // Block types that cannot be created via documentBlockChildren.create API
 const UNSUPPORTED_CREATE_TYPES = new Set([31, 32]);
 const MAX_CHILDREN_PER_REQUEST = 50;
+type EditorMemberType = "openid" | "userid";
+
+const ALLOWED_BLOCK_FIELDS = [
+  "text",
+  "heading1",
+  "heading2",
+  "heading3",
+  "heading4",
+  "heading5",
+  "heading6",
+  "bullet",
+  "ordered",
+  "code",
+  "quote",
+  "todo",
+  "divider",
+  "image",
+  "file",
+] as const;
 
 /** Clean blocks for insertion (remove unsupported types and read-only fields) */
 function cleanBlocksForInsert(blocks: any[]): { cleaned: any[]; skipped: string[] } {
   const skipped: string[] = [];
   const cleaned = blocks
     .filter((block) => {
+      if (block.block_type === 1) {
+        // Page blocks are the document root and cannot be created as children.
+        const typeName = BLOCK_TYPE_NAMES[block.block_type] || `type_${block.block_type}`;
+        skipped.push(typeName);
+        return false;
+      }
       if (UNSUPPORTED_CREATE_TYPES.has(block.block_type)) {
         const typeName = BLOCK_TYPE_NAMES[block.block_type] || `type_${block.block_type}`;
         skipped.push(typeName);
@@ -87,13 +113,99 @@ function cleanBlocksForInsert(blocks: any[]): { cleaned: any[]; skipped: string[
       return true;
     })
     .map((block) => {
-      if (block.block_type === 31 && block.table?.merge_info) {
-        const { merge_info, ...tableRest } = block.table;
-        return { ...block, table: tableRest };
+      const sanitized: any = { block_type: block.block_type };
+      for (const key of ALLOWED_BLOCK_FIELDS) {
+        if (block[key] !== undefined) {
+          sanitized[key] = block[key];
+        }
       }
-      return block;
-    });
+      const hasContent = ALLOWED_BLOCK_FIELDS.some((key) => sanitized[key] !== undefined);
+      if (!hasContent) {
+        const typeName = BLOCK_TYPE_NAMES[block.block_type] || `type_${block.block_type}`;
+        skipped.push(typeName);
+        return null;
+      }
+      return sanitized;
+    })
+    .filter(Boolean);
   return { cleaned, skipped };
+}
+
+function resolveEditorMember(
+  raw?: string,
+  explicitType?: EditorMemberType,
+): { memberType: EditorMemberType; memberId: string } | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  const lowered = trimmed.toLowerCase();
+  let normalized = normalizeFeishuTarget(trimmed) ?? trimmed;
+  if (lowered.startsWith("user_id:")) {
+    normalized = trimmed.slice("user_id:".length).trim();
+  } else if (lowered.startsWith("userid:")) {
+    normalized = trimmed.slice("userid:".length).trim();
+  }
+  if (!normalized) return null;
+  if (explicitType === "openid" || explicitType === "userid") {
+    return { memberType: explicitType, memberId: normalized };
+  }
+  const detected = detectIdType(normalized);
+  if (detected === "open_id") return { memberType: "openid", memberId: normalized };
+  if (detected === "user_id") return { memberType: "userid", memberId: normalized };
+  return null;
+}
+
+async function grantDocEditPermission(
+  client: Lark.Client,
+  docToken: string,
+  member: { memberType: EditorMemberType; memberId: string },
+): Promise<void> {
+  const res = await client.drive.permissionMember.create({
+    path: { token: docToken },
+    params: { type: "docx", need_notification: false },
+    data: {
+      member_type: member.memberType,
+      member_id: member.memberId,
+      perm: "edit",
+    },
+  });
+  if (res.code !== 0) throw new Error(res.msg);
+}
+
+async function maybeGrantEditor(
+  client: Lark.Client,
+  docToken: string | undefined,
+  params: {
+    sender_open_id?: string;
+    editor_id?: string;
+    editor_id_type?: EditorMemberType;
+  },
+): Promise<Record<string, unknown>> {
+  if (!docToken) return {};
+
+  const candidate = params.sender_open_id || params.editor_id;
+  if (!candidate) {
+    return {
+      edit_grant_warning: "sender_open_id/editor_id not provided; edit permission not granted",
+    };
+  }
+
+  const resolved = resolveEditorMember(candidate, params.editor_id_type);
+  if (!resolved) {
+    return { edit_grant_error: "Invalid editor id; edit permission not granted" };
+  }
+
+  try {
+    await grantDocEditPermission(client, docToken, resolved);
+    return {
+      edit_grant: {
+        member_type: resolved.memberType,
+        member_id: resolved.memberId,
+        perm: "edit",
+      },
+    };
+  } catch (err) {
+    return { edit_grant_error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 // ============ Core Functions ============
@@ -431,7 +543,7 @@ export function registerFeishuDocTools(api: OpenClawPluginApi) {
       name: "feishu_doc",
       label: "Feishu Doc",
       description:
-        "Feishu document operations. Actions: read, write, append, create, list_blocks, get_block, update_block, delete_block",
+        "Feishu document operations. create 可传 sender_open_id（来自上下文 SenderId）以自动授予编辑权限，未传则不授予。Actions: read, write, append, create, list_blocks, get_block, update_block, delete_block",
       parameters: FeishuDocSchema,
       async execute(_toolCallId, params) {
         const p = params as FeishuDocParams;
@@ -450,12 +562,29 @@ export function registerFeishuDocTools(api: OpenClawPluginApi) {
                 const safeTitle = deriveTitleFromContent(content);
                 const created = await createDoc(client, safeTitle, p.folder_token);
                 if (created.document_id) {
+                  const editGrant = await maybeGrantEditor(client, created.document_id, {
+                    sender_open_id: p.sender_open_id,
+                    editor_id: p.editor_id,
+                    editor_id_type: p.editor_id_type as EditorMemberType | undefined,
+                  });
                   await writeDoc(client, created.document_id, content);
-                  return json({ ...created, warning: "Title looked like content; auto-wrote body." });
+                  return json({
+                    ...created,
+                    ...editGrant,
+                    warning: "Title looked like content; auto-wrote body.",
+                  });
                 }
                 return json(created);
               }
-              return json(await createDoc(client, p.title, p.folder_token));
+              {
+                const created = await createDoc(client, p.title, p.folder_token);
+                const editGrant = await maybeGrantEditor(client, created.document_id, {
+                  sender_open_id: p.sender_open_id,
+                  editor_id: p.editor_id,
+                  editor_id_type: p.editor_id_type as EditorMemberType | undefined,
+                });
+                return json({ ...created, ...editGrant });
+              }
             case "list_blocks":
               return json(await listBlocks(client, p.doc_token));
             case "get_block":

@@ -28,6 +28,12 @@ function shouldUseCard(text: string): boolean {
   return false;
 }
 
+function containsFeishuDomainLink(text: string): boolean {
+  return /https?:\/\/(?:[a-z0-9-]+\.)?(?:feishu\.cn|larksuite\.com|lark\.com)(?:\/|$)/i.test(
+    text,
+  );
+}
+
 export type CreateFeishuReplyDispatcherParams = {
   cfg: ClawdbotConfig;
   agentId: string;
@@ -113,7 +119,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
         // Determine if we should use card for this message
         const useCard =
           renderMode === "card" || (renderMode === "auto" && shouldUseCard(text));
-        const usePost = renderMode === "post";
+        const usePost = renderMode === "post" && !containsFeishuDomainLink(text);
 
         // Only include @mentions in the first chunk (avoid duplicate @s)
         let isFirstChunk = true;
