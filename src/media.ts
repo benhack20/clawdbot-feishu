@@ -451,6 +451,14 @@ function isLocalPath(urlOrPath: string): boolean {
   }
 }
 
+function normalizeMediaUrl(input: string): string {
+  let url = input.trim();
+  if (/^media:/i.test(url)) {
+    url = url.replace(/^media:/i, "").trim();
+  }
+  return url;
+}
+
 /**
  * Upload and send media (image or file) from URL, local path, or buffer
  */
@@ -471,11 +479,12 @@ export async function sendMediaFeishu(params: {
     buffer = mediaBuffer;
     name = fileName ?? "file";
   } else if (mediaUrl) {
-    if (isLocalPath(mediaUrl)) {
+    const normalizedUrl = normalizeMediaUrl(mediaUrl);
+    if (isLocalPath(normalizedUrl)) {
       // Local file path - read directly
-      const filePath = mediaUrl.startsWith("~")
-        ? mediaUrl.replace("~", process.env.HOME ?? "")
-        : mediaUrl.replace("file://", "");
+      const filePath = normalizedUrl.startsWith("~")
+        ? normalizedUrl.replace("~", os.homedir())
+        : normalizedUrl.replace("file://", "");
 
       if (!fs.existsSync(filePath)) {
         throw new Error(`Local file not found: ${filePath}`);
@@ -484,12 +493,12 @@ export async function sendMediaFeishu(params: {
       name = fileName ?? path.basename(filePath);
     } else {
       // Remote URL - fetch
-      const response = await fetch(mediaUrl);
+      const response = await fetch(normalizedUrl);
       if (!response.ok) {
         throw new Error(`Failed to fetch media from URL: ${response.status}`);
       }
       buffer = Buffer.from(await response.arrayBuffer());
-      name = fileName ?? (path.basename(new URL(mediaUrl).pathname) || "file");
+      name = fileName ?? (path.basename(new URL(normalizedUrl).pathname) || "file");
     }
   } else {
     throw new Error("Either mediaUrl or mediaBuffer must be provided");

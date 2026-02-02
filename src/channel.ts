@@ -86,6 +86,17 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
         chunkMode: { type: "string", enum: ["length", "newline"] },
         mediaMaxMb: { type: "number", minimum: 0 },
         renderMode: { type: "string", enum: ["auto", "raw", "post", "card"] },
+        tools: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            doc: { type: "boolean" },
+            wiki: { type: "boolean" },
+            drive: { type: "boolean" },
+            perm: { type: "boolean" },
+            scopes: { type: "boolean" },
+          },
+        },
       },
     },
   },

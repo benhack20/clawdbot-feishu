@@ -1,6 +1,11 @@
-# clawd-feishu
+# clawdbot-feishu
 
 Feishu/Lark (飞书) channel plugin for [OpenClaw](https://github.com/openclaw/openclaw).
+
+This fork adds:
+- Better Markdown rendering (post/card modes + auto detection)
+- Feishu Docs / Drive / Wiki / Permission tools
+- Built-in skills to guide tool usage
 
 [English](#english) | [中文](#中文)
 
@@ -11,13 +16,19 @@ Feishu/Lark (飞书) channel plugin for [OpenClaw](https://github.com/openclaw/o
 ### Installation
 
 ```bash
-openclaw plugins install @m1heng-clawd/feishu
+openclaw plugins install @superbenxxxh/feishu
 ```
 
 Or install via npm:
 
 ```bash
-npm install @m1heng-clawd/feishu
+npm install @superbenxxxh/feishu
+```
+
+Local dev install:
+
+```bash
+openclaw plugins install .
 ```
 
 ### Configuration
@@ -26,9 +37,9 @@ npm install @m1heng-clawd/feishu
 2. Get your App ID and App Secret from the Credentials page
 3. Enable required permissions (see below)
 4. **Configure event subscriptions** (see below) ⚠️ Important
-5. Configure the plugin:
+5. Configure the plugin
 
-#### Required Permissions
+#### Required Permissions (Messaging)
 
 | Permission | Scope | Description |
 |------------|-------|-------------|
@@ -39,7 +50,7 @@ npm install @m1heng-clawd/feishu
 | `im:message:send_as_bot` | Send | Send messages as the bot |
 | `im:resource` | Media | Upload and download images/files |
 
-#### Optional Permissions
+#### Optional Permissions (Messaging)
 
 | Permission | Scope | Description |
 |------------|-------|-------------|
@@ -48,6 +59,15 @@ npm install @m1heng-clawd/feishu
 | `im:message:update` | Edit | Update/edit sent messages |
 | `im:message:recall` | Recall | Recall sent messages |
 | `im:message.reactions:read` | Reactions | View message reactions |
+
+#### Optional Permissions (Docs / Drive / Wiki)
+
+| Feature | Required Permissions |
+|---------|----------------------|
+| Feishu Docs (`feishu_doc`) | `docx:document`, `docx:document:readonly`, `docx:document.block:convert`, `drive:drive` |
+| Feishu Drive (`feishu_drive`) | `drive:drive` (full) or `drive:drive:readonly` (read only) |
+| Feishu Wiki (`feishu_wiki`) | `wiki:wiki` or `wiki:wiki:readonly` |
+| Permissions tool (`feishu_perm`) | `drive:permission` |
 
 #### Event Subscriptions ⚠️
 
@@ -95,6 +115,13 @@ channels:
     mediaMaxMb: 30
     # Render mode for bot replies: "post" | "auto" | "raw" | "card"
     renderMode: "post"
+    # Tool toggles
+    tools:
+      doc: true
+      wiki: true
+      drive: true
+      perm: false
+      scopes: true
 ```
 
 #### Render Mode
@@ -105,6 +132,23 @@ channels:
 | `auto` | Automatically detect: use card for messages with code blocks or tables, plain text otherwise. |
 | `raw` | Always send replies as plain text. Markdown tables are converted to ASCII. |
 | `card` | Always send replies as interactive cards with full markdown rendering (syntax highlighting, tables, clickable links). |
+
+### Tools & Skills
+
+This plugin registers tools and ships built-in skills (loaded via `openclaw.plugin.json`) so the model can use them reliably:
+
+| Tool | Purpose |
+|------|---------|
+| `feishu_doc` | Read/write Feishu Docs (docx), append content, list/update/delete blocks |
+| `feishu_drive` | List/move/delete files and folders in Feishu Drive |
+| `feishu_wiki` | Browse and manage wiki spaces/nodes |
+| `feishu_perm` | Manage file/document permissions (disabled by default) |
+| `feishu_app_scopes` | Inspect granted app scopes |
+
+Notes:
+- Wiki content is edited via `feishu_doc` (wiki → get node → use `obj_token` as doc token).
+- Feishu Docs do **not** support Markdown tables via the convert API.
+- Drive root folder may be unavailable to bots; share a folder with the bot first, then operate inside it.
 
 ### Features
 
@@ -118,6 +162,7 @@ channels:
 - User and group directory lookup
 - **Card render mode**: Optional markdown rendering with syntax highlighting
 - **@mention forwarding**: When you @mention someone in your message, the bot's reply will automatically @mention them too
+- **Cloud docs & wiki tools**: Read/write docx, navigate wiki, manage drive
 
 #### @Mention Forwarding
 
@@ -142,6 +187,14 @@ Check the following:
 
 Ensure `im:message:send_as_bot` permission is approved.
 
+#### Drive actions fail with 400 or empty root
+
+Bots do not have a personal root folder. Share a folder with the bot, then operate inside that folder.
+
+#### Docx write cannot create tables
+
+The docx convert API does not support Markdown tables. Use plain lists or manual tables instead.
+
 #### How to clear history / start new conversation
 
 Send `/new` command in the chat.
@@ -156,10 +209,10 @@ If `openclaw plugins install` fails, install manually:
 
 ```bash
 # 1. Download the package
-curl -O https://registry.npmjs.org/@m1heng-clawd/feishu/-/feishu-0.1.3.tgz
+curl -O https://registry.npmjs.org/@superbenxxxh/feishu/-/feishu-VERSION.tgz
 
 # 2. Install from local file
-openclaw plugins install ./feishu-0.1.3.tgz
+openclaw plugins install ./feishu-VERSION.tgz
 ```
 
 #### Cannot find the bot in Feishu
@@ -175,13 +228,19 @@ openclaw plugins install ./feishu-0.1.3.tgz
 ### 安装
 
 ```bash
-openclaw plugins install @m1heng-clawd/feishu
+openclaw plugins install @superbenxxxh/feishu
 ```
 
 或通过 npm 安装：
 
 ```bash
-npm install @m1heng-clawd/feishu
+npm install @superbenxxxh/feishu
+```
+
+本地开发安装：
+
+```bash
+openclaw plugins install .
 ```
 
 ### 配置
@@ -190,9 +249,9 @@ npm install @m1heng-clawd/feishu
 2. 在凭证页面获取 App ID 和 App Secret
 3. 开启所需权限（见下方）
 4. **配置事件订阅**（见下方）⚠️ 重要
-5. 配置插件：
+5. 配置插件
 
-#### 必需权限
+#### 必需权限（消息）
 
 | 权限 | 范围 | 说明 |
 |------|------|------|
@@ -203,7 +262,7 @@ npm install @m1heng-clawd/feishu
 | `im:message:send_as_bot` | 发送 | 以机器人身份发送消息 |
 | `im:resource` | 媒体 | 上传和下载图片/文件 |
 
-#### 可选权限
+#### 可选权限（消息）
 
 | 权限 | 范围 | 说明 |
 |------|------|------|
@@ -212,6 +271,15 @@ npm install @m1heng-clawd/feishu
 | `im:message:update` | 编辑 | 更新/编辑已发送消息 |
 | `im:message:recall` | 撤回 | 撤回已发送消息 |
 | `im:message.reactions:read` | 表情 | 查看消息表情回复 |
+
+#### 可选权限（文档 / 云盘 / 知识库）
+
+| 功能 | 所需权限 |
+|------|-----------|
+| 文档工具 `feishu_doc` | `docx:document`, `docx:document:readonly`, `docx:document.block:convert`, `drive:drive` |
+| 云盘工具 `feishu_drive` | `drive:drive`（读写）或 `drive:drive:readonly`（只读） |
+| 知识库工具 `feishu_wiki` | `wiki:wiki` 或 `wiki:wiki:readonly` |
+| 权限工具 `feishu_perm` | `drive:permission` |
 
 #### 事件订阅 ⚠️
 
@@ -259,6 +327,13 @@ channels:
     mediaMaxMb: 30
     # 回复渲染模式: "post" | "auto" | "raw" | "card"
     renderMode: "post"
+    # 工具开关
+    tools:
+      doc: true
+      wiki: true
+      drive: true
+      perm: false
+      scopes: true
 ```
 
 #### 渲染模式
@@ -269,6 +344,23 @@ channels:
 | `auto` | 自动检测：有代码块或表格时用卡片，否则纯文本 |
 | `raw` | 始终纯文本，表格转为 ASCII |
 | `card` | 始终使用卡片，支持语法高亮、表格、链接等 |
+
+### 工具与技能
+
+插件注册了工具，并自带技能说明（通过 `openclaw.plugin.json` 加载），模型可更稳定调用：
+
+| 工具 | 作用 |
+|------|------|
+| `feishu_doc` | 读写飞书文档（docx），追加内容，列出/更新/删除块 |
+| `feishu_drive` | 云盘文件/文件夹浏览、移动、删除 |
+| `feishu_wiki` | 知识库空间与节点管理 |
+| `feishu_perm` | 文件/文档权限管理（默认关闭） |
+| `feishu_app_scopes` | 查看应用权限范围 |
+
+说明：
+- 知识库页面内容通过 `feishu_doc` 读写（先 wiki get 获取 `obj_token`）。
+- docx 转换 API **不支持 Markdown 表格**。
+- 机器人没有“我的空间”根目录，需要先共享一个文件夹给机器人。
 
 ### 功能
 
@@ -282,6 +374,7 @@ channels:
 - 用户和群组目录查询
 - **卡片渲染模式**：支持语法高亮的 Markdown 渲染
 - **@ 转发功能**：在消息中 @ 某人，机器人的回复会自动 @ 该用户
+- **文档 / 云盘 / 知识库工具**：读写 docx、浏览知识库、管理云盘
 
 #### @ 转发功能
 
@@ -306,6 +399,14 @@ channels:
 
 确保已申请 `im:message:send_as_bot` 权限，并且权限已审核通过。
 
+#### 云盘操作 400 或根目录为空
+
+机器人没有个人根目录。请先共享一个文件夹给机器人，再在该文件夹内操作。
+
+#### 文档写入不支持表格
+
+docx 转换 API 不支持 Markdown 表格。请使用列表或手动表格。
+
 #### 如何清理历史会话 / 开启新对话
 
 在聊天中发送 `/new` 命令即可开启新对话。
@@ -320,10 +421,10 @@ channels:
 
 ```bash
 # 1. 下载插件包
-curl -O https://registry.npmjs.org/@m1heng-clawd/feishu/-/feishu-0.1.3.tgz
+curl -O https://registry.npmjs.org/@superbenxxxh/feishu/-/feishu-VERSION.tgz
 
 # 2. 从本地安装
-openclaw plugins install ./feishu-0.1.3.tgz
+openclaw plugins install ./feishu-VERSION.tgz
 ```
 
 #### 在飞书里找不到机器人

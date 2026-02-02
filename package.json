@@ -1,6 +1,6 @@
 {
   "name": "@superbenxxxh/feishu",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "type": "module",
   "description": "OpenClaw Feishu/Lark channel plugin",
   "license": "MIT",
@@ -46,6 +46,7 @@
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.30.0",
+    "@sinclair/typebox": "^0.34.48",
     "zod": "^4.3.6"
   },
   "devDependencies": {
