@@ -39,3 +39,6 @@ npm whoami
 
 # 先修改版本号，再发布（公开发布，所有人可安装）
 npm publish --access public
+
+# openclaw 里安装
+openclaw plugins install @superbenxxxh/feishu

@@ -509,8 +509,20 @@ export async function sendMediaFeishu(params: {
   const isImage = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".ico", ".tiff"].includes(ext);
 
   if (isImage) {
-    const { imageKey } = await uploadImageFeishu({ cfg, image: buffer });
-    return sendImageFeishu({ cfg, to, imageKey, replyToMessageId });
+    try {
+      const { imageKey } = await uploadImageFeishu({ cfg, image: buffer });
+      return sendImageFeishu({ cfg, to, imageKey, replyToMessageId });
+    } catch (err) {
+      // If image upload fails (e.g., size/format limits), fallback to file upload.
+      const fileType = detectFileType(name);
+      const { fileKey } = await uploadFileFeishu({
+        cfg,
+        file: buffer,
+        fileName: name,
+        fileType,
+      });
+      return sendFileFeishu({ cfg, to, fileKey, replyToMessageId });
+    }
   } else {
     const fileType = detectFileType(name);
     const { fileKey } = await uploadFileFeishu({
