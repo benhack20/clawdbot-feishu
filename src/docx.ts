@@ -543,7 +543,7 @@ export function registerFeishuDocTools(api: OpenClawPluginApi) {
       name: "feishu_doc",
       label: "Feishu Doc",
       description:
-        "Feishu document operations. create 可传 sender_open_id（来自上下文 SenderId）以自动授予编辑权限，未传则不授予。Actions: read, write, append, create, list_blocks, get_block, update_block, delete_block",
+        "Feishu document operations. create 可传 content 写入正文；可传 sender_open_id（来自上下文 SenderId）以自动授予编辑权限，未传则不授予。Actions: read, write, append, create, list_blocks, get_block, update_block, delete_block",
       parameters: FeishuDocSchema,
       async execute(_toolCallId, params) {
         const p = params as FeishuDocParams;
@@ -557,6 +557,31 @@ export function registerFeishuDocTools(api: OpenClawPluginApi) {
             case "append":
               return json(await appendDoc(client, p.doc_token, p.content));
             case "create":
+              {
+                const explicitContent = p.content?.trim();
+                if (explicitContent) {
+                  const created = await createDoc(client, p.title, p.folder_token);
+                  if (created.document_id) {
+                    const editGrant = await maybeGrantEditor(client, created.document_id, {
+                      sender_open_id: p.sender_open_id,
+                      editor_id: p.editor_id,
+                      editor_id_type: p.editor_id_type as EditorMemberType | undefined,
+                    });
+                    const writeResult = await writeDoc(
+                      client,
+                      created.document_id,
+                      explicitContent,
+                    );
+                    return json({
+                      ...created,
+                      ...editGrant,
+                      ...writeResult,
+                      wrote_content: true,
+                    });
+                  }
+                  return json(created);
+                }
+              }
               if (looksLikeMarkdownContent(p.title)) {
                 const content = p.title;
                 const safeTitle = deriveTitleFromContent(content);
@@ -567,10 +592,11 @@ export function registerFeishuDocTools(api: OpenClawPluginApi) {
                     editor_id: p.editor_id,
                     editor_id_type: p.editor_id_type as EditorMemberType | undefined,
                   });
-                  await writeDoc(client, created.document_id, content);
+                  const writeResult = await writeDoc(client, created.document_id, content);
                   return json({
                     ...created,
                     ...editGrant,
+                    ...writeResult,
                     warning: "Title looked like content; auto-wrote body.",
                   });
                 }
