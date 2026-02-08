@@ -34,6 +34,11 @@ function containsFeishuDomainLink(text: string): boolean {
   );
 }
 
+function isProcessPollSummary(text: string): boolean {
+  const normalized = text.replace(/`/g, "");
+  return /process:\s*poll\b/i.test(normalized);
+}
+
 export type CreateFeishuReplyDispatcherParams = {
   cfg: ClawdbotConfig;
   agentId: string;
@@ -104,7 +109,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
       responsePrefixContextProvider: prefixContext.responsePrefixContextProvider,
       humanDelay: core.channel.reply.resolveHumanDelayConfig(cfg, agentId),
       onReplyStart: typingCallbacks.onReplyStart,
-      deliver: async (payload: ReplyPayload) => {
+      deliver: async (payload: ReplyPayload, info) => {
         params.runtime.log?.(`feishu deliver called: text=${payload.text?.slice(0, 100)}`);
         const text = payload.text ?? "";
         if (!text.trim()) {
@@ -114,6 +119,10 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
 
         // Check render mode: post (default), auto, raw, or card
         const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
+        const suppressProcessPoll = feishuCfg?.toolMessages?.suppressProcessPoll ?? true;
+        if (info?.kind === "tool" && suppressProcessPoll && isProcessPollSummary(text)) {
+          return;
+        }
         const renderMode = feishuCfg?.renderMode ?? "post";
 
         // Determine if we should use card for this message

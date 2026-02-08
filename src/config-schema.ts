@@ -50,6 +50,13 @@ const ChannelHeartbeatVisibilitySchema = z
   .strict()
   .optional();
 
+const ToolMessageFilterSchema = z
+  .object({
+    suppressProcessPoll: z.boolean().optional(),
+  })
+  .strict()
+  .optional();
+
 /**
  * Feishu tools configuration.
  * Controls which tool categories are enabled.
@@ -110,6 +117,7 @@ export const FeishuConfigSchema = z
     heartbeat: ChannelHeartbeatVisibilitySchema,
     renderMode: RenderModeSchema, // post = rich text (default), raw = plain text, card = interactive card
     tools: FeishuToolsConfigSchema,
+    toolMessages: ToolMessageFilterSchema,
   })
   .strict()
   .superRefine((value, ctx) => {
